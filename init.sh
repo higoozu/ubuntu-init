@@ -129,12 +129,13 @@ step "2 / 11  配置 NTP 时间同步"
 ntpdate pool.ntp.org && success "时间同步成功：$(date)" || warn "ntpdate 同步失败，请检查网络"
 
 # 写入 root crontab（幂等：先删除旧条目再追加）
-# 用 || true 防止 crontab 为空时 crontab -l 返回非零导致 set -e 退出
+# 每一步都加 || true，防止 set -e 在空 crontab 或无匹配时退出
 CRON_MARK="# init_vps: ntp sync"
-(crontab -l 2>/dev/null || true) | grep -v "$CRON_MARK" > /tmp/crontab_tmp
-echo "0 0 * * * /usr/sbin/ntpdate pool.ntp.org > /dev/null 2>&1 $CRON_MARK" >> /tmp/crontab_tmp
-crontab /tmp/crontab_tmp
-rm -f /tmp/crontab_tmp
+crontab -l 2>/dev/null > /tmp/crontab_tmp || true
+grep -v "$CRON_MARK" /tmp/crontab_tmp > /tmp/crontab_new || true
+echo "0 0 * * * /usr/sbin/ntpdate pool.ntp.org > /dev/null 2>&1 $CRON_MARK" >> /tmp/crontab_new
+crontab /tmp/crontab_new || true
+rm -f /tmp/crontab_tmp /tmp/crontab_new
 success "已添加每日 00:00 NTP 同步 cron 任务"
 
 # ──────────────────────────────────────────────
