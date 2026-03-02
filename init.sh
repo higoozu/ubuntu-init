@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 # VPS 初始化脚本
+# 运行方式：sudo bash init_vps.sh
 # =============================================================================
 
 set -euo pipefail
@@ -128,9 +129,12 @@ step "2 / 11  配置 NTP 时间同步"
 ntpdate pool.ntp.org && success "时间同步成功：$(date)" || warn "ntpdate 同步失败，请检查网络"
 
 # 写入 root crontab（幂等：先删除旧条目再追加）
+# 用 || true 防止 crontab 为空时 crontab -l 返回非零导致 set -e 退出
 CRON_MARK="# init_vps: ntp sync"
-(crontab -l 2>/dev/null | grep -v "$CRON_MARK"; \
-  echo "0 0 * * * /usr/sbin/ntpdate pool.ntp.org > /dev/null 2>&1 $CRON_MARK") | crontab -
+(crontab -l 2>/dev/null || true) | grep -v "$CRON_MARK" > /tmp/crontab_tmp
+echo "0 0 * * * /usr/sbin/ntpdate pool.ntp.org > /dev/null 2>&1 $CRON_MARK" >> /tmp/crontab_tmp
+crontab /tmp/crontab_tmp
+rm -f /tmp/crontab_tmp
 success "已添加每日 00:00 NTP 同步 cron 任务"
 
 # ──────────────────────────────────────────────
