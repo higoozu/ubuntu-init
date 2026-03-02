@@ -239,11 +239,20 @@ HostKeyAlgorithms ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,rsa-sha2-512,rsa-
 # --- init_vps ssh algorithms end ---
 EOF
 
-# Ubuntu 24.04 兼容处理
-if systemctl list-units --type=socket 2>/dev/null | grep -q "ssh.socket"; then
+# 兼容处理：检测 ssh.socket unit 文件是否实际存在
+SSH_SOCKET_FILE=""
+for f in /lib/systemd/system/ssh.socket /usr/lib/systemd/system/ssh.socket /etc/systemd/system/ssh.socket; do
+  if [[ -f "$f" ]]; then
+    SSH_SOCKET_FILE="$f"
+    break
+  fi
+done
+
+if [[ -n "$SSH_SOCKET_FILE" ]]; then
   systemctl daemon-reload
   systemctl restart ssh.socket
-  info "已通过 ssh.socket 重启 SSH"
+  systemctl restart ssh
+  info "已通过 ssh.socket 重启 SSH（文件：$SSH_SOCKET_FILE）"
 else
   systemctl restart ssh
   info "已通过 sshd 服务重启 SSH"
